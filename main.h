@@ -5,7 +5,7 @@
 
 #define SCREEN_WIDTH 1000
 #define SCREEN_HEIGHT 500
-#define maxPipes 16
+#define maxPipes 1028
 
 typedef struct {
   Vector2 topPos;

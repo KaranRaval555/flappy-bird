@@ -3,19 +3,22 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+void toggleMode();
+
 int main() {
-  float vertical_gap = 70.0f;
-  float speed = 40.0f;
+  bool mode = 0;
+  float vertGap = 70.0f;
+  float pipeSpeed = 40.0f;
   bool showTexture = false;
   bool gameOver = false;
   u16 counter = 0;
   float velocity = 50.0f;
   float gravity = 700.0f;
-  u8 currentFrame = 0;
+  u16 currentFrame = 0;
   float frameTime = 0.0f;
   float frameSpeed = 0.12f;
   float offset = 140.0f;
-  float gapBetweenPipes = 200.0f;
+  float gapBetweenPipes = 250.0f;
 
   typedef struct {
     Vector2 pos;
@@ -30,13 +33,19 @@ int main() {
   InitAudioDevice();
   SetTargetFPS(60);
 
-  Texture2D background = LoadTexture("./assets/sprites/background-day.png");
+  Texture2D day = LoadTexture("./assets/sprites/background-day.png");
+  Texture2D night = LoadTexture("./assets/sprites/background-night.png");
   Texture2D message = LoadTexture("./assets/sprites/message.png");
-  Texture2D bird_up = LoadTexture("./assets/sprites/bluebird-upflap.png");
-  Texture2D bird_mid = LoadTexture("./assets/sprites/bluebird-midflap.png");
-  Texture2D bird_down = LoadTexture("./assets/sprites/bluebird-downflap.png");
-  Texture2D bottomPipeImg = LoadTexture("./assets/sprites/pipe-green.png");
-  Texture2D topPipeImg = LoadTexture("./assets/sprites/pipe-green-flipped.png");
+  Texture2D blue_bird_up = LoadTexture("./assets/sprites/bluebird-upflap.png");
+  Texture2D blue_bird_mid = LoadTexture("./assets/sprites/bluebird-midflap.png");
+  Texture2D blue_bird_down = LoadTexture("./assets/sprites/bluebird-downflap.png");
+  Texture2D red_bird_up = LoadTexture("./assets/sprites/redbird-upflap.png");
+  Texture2D red_bird_mid = LoadTexture("./assets/sprites/redbird-midflap.png");
+  Texture2D red_bird_down = LoadTexture("./assets/sprites/redbird-downflap.png");
+  Texture2D greenBottomPipeImg = LoadTexture("./assets/sprites/pipe-green.png");
+  Texture2D greenTopPipeImg = LoadTexture("./assets/sprites/pipe-green-flipped.png");
+  Texture2D redTopPipeImg = LoadTexture("./assets/sprites/pipe-red-flipped.png");
+  Texture2D redBottomPipeImg = LoadTexture("./assets/sprites/pipe-red.png");
   Texture2D lastMsg = LoadTexture("./assets/sprites/gameover.png");
   Sound wing_sound = LoadSound("./assets/audio/wing.wav");
   Sound die_sound = LoadSound("./assets/audio/die.wav");
@@ -45,28 +54,52 @@ int main() {
   Sound point_sound = LoadSound("./assets/audio/point.wav");
   Font customFont = LoadFont("./assets/ttyclock.ttf");
 
-  SetSoundVolume(jump_sound, 0.2f);
-
-  Texture2D birdFrames[3] = {bird_up, bird_mid, bird_down};
+  Texture2D birdFrames[3];
+  birdFrames[0] = blue_bird_up;
+  birdFrames[1] = blue_bird_mid;
+  birdFrames[2] = blue_bird_down;
 
   Texture2D nums[10];
   loadNums(nums);
 
-  updateBirdPos(&bird.pos, bird.area.width);
-  updateBirdArea(&bird.area, &bird.pos, bird_mid.width, bird_mid.height);
+  Texture2D topPipeImg = redTopPipeImg;
+  Texture2D bottomPipeImg = redBottomPipeImg;
 
-  initializePipes(pipes, topPipeImg, bottomPipeImg, vertical_gap, offset, gapBetweenPipes);
-  updatePipesArea(pipes, topPipeImg.width, topPipeImg.height);
+  float pipeWidth = topPipeImg.width;
+  float pipeHeight = topPipeImg.height;
+  float birdWidth = birdFrames[1].width;
+  float birdHeight = birdFrames[1].height;
+
+  updateBirdPos(&bird.pos, bird.area.width);
+  updateBirdArea(&bird.area, &bird.pos, birdWidth, birdHeight);
+
+  initializePipes(pipes, topPipeImg, bottomPipeImg, vertGap, offset, gapBetweenPipes);
+  updatePipesArea(pipes, pipeWidth, pipeHeight);
 
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(RAYWHITE);
-    renderBackground(background);
+    if(mode) {
+      renderBackground(night);
+      topPipeImg = redTopPipeImg;
+      bottomPipeImg = redBottomPipeImg;
+      birdFrames[0] = red_bird_up;
+      birdFrames[1] = red_bird_mid;
+      birdFrames[2] = red_bird_down;
+    }
+    else {
+      renderBackground(day);
+      topPipeImg = greenTopPipeImg;
+      bottomPipeImg = greenBottomPipeImg;
+      birdFrames[0] = blue_bird_up;
+      birdFrames[1] = blue_bird_mid;
+      birdFrames[2] = blue_bird_down;
+    }
 
     if(!gameOver) {
 
-      if(pipes[maxPipes-1].topPos.x + bottomPipeImg.width <= 0) {
-        updatePipesPos(pipes, topPipeImg.width, bottomPipeImg.width, vertical_gap, offset);
+      if(pipes[maxPipes-1].topPos.x + pipeWidth <= 0) {
+        initializePipes(pipes, topPipeImg, bottomPipeImg, vertGap, offset, gapBetweenPipes);
       }
 
       if(bird.pos.y >= SCREEN_HEIGHT || bird.pos.y <= 0) {
@@ -79,9 +112,12 @@ int main() {
       }
 
       if(showTexture){
-
-        if(bird.pos.x > pipes[counter].bottomArea.x + bottomPipeImg.width) {
+        if(bird.pos.x > pipes[counter].bottomArea.x + pipeWidth) {
           PlaySound(point_sound);
+          if((counter + 1) % 5 == 0) {
+            mode = !mode;
+            pipeSpeed += 5;
+          }
           counter++;
         }
 
@@ -96,12 +132,13 @@ int main() {
 
         velocity += dt * gravity;
 
-        for (u8 i = 0; i < maxPipes; i++) {
-          movePipes(&pipes[i].topPos, &pipes[i].bottomPos, dt, speed);
+        for (u16 i = 0; i < maxPipes; i++) {
+          movePipes(&pipes[i].topPos, &pipes[i].bottomPos, dt, pipeSpeed);
         }
-        updatePipesArea(pipes, topPipeImg.width, topPipeImg.height);
 
-        updateBirdArea(&bird.area, &bird.pos, bird_mid.width, bird_mid.height);
+        updatePipesArea(pipes, pipeWidth, pipeHeight);
+
+        updateBirdArea(&bird.area, &bird.pos, birdWidth, birdHeight);
 
         if(frameTime >= frameSpeed) {
           frameTime = 0.0f;
@@ -110,13 +147,13 @@ int main() {
             currentFrame = 0;
           }
         }
-        for (u8 i = 0; i < maxPipes; i++) {
-            renderObstacles(topPipeImg, bottomPipeImg, pipes[i].topPos, pipes[i].bottomPos);
+        for (u16 i = 0; i < maxPipes; i++) {
+          renderObstacles(topPipeImg, bottomPipeImg, pipes[i].topPos, pipes[i].bottomPos);
         }
 
-        renderCounter(customFont, nums,counter);
+        DrawTextEx(customFont,TextFormat("%d", counter), (Vector2){50.0f, 50.0f}, 50, 2.0f, WHITE);
         renderBird(birdFrames[currentFrame], bird.pos);
-        PlaySound(wing_sound);
+        if(!IsSoundPlaying(wing_sound)) PlaySound(wing_sound);
 
         if(IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
           PlaySound(jump_sound);
@@ -136,74 +173,63 @@ int main() {
         frameTime = 0;
 
         // update bird
-        updateBirdArea(&bird.area, &bird.pos, bird_mid.width, bird_mid.height);
+        updateBirdArea(&bird.area, &bird.pos, birdWidth, birdHeight);
         updateBirdPos(&bird.pos, bird.area.width);
 
         // rest pipe
-        updatePipesPos(pipes, topPipeImg.width, bottomPipeImg.width, vertical_gap, offset);
+        // updatePipesPos(pipes, topPipeImg.width, bottomPipeImg.width, vertGap, offset);
 
-        initializePipes(pipes, topPipeImg, bottomPipeImg, vertical_gap, offset, gapBetweenPipes);
+        initializePipes(pipes, topPipeImg, bottomPipeImg, vertGap, offset, gapBetweenPipes);
 
         //rest collision boxes
-        updatePipesArea(pipes, topPipeImg.width, topPipeImg.height);
+        updatePipesArea(pipes, pipeWidth, pipeHeight);
       }
       else {
         renderTxt(lastMsg);
-        renderCounter(customFont, nums,counter);
+        DrawTextEx(customFont,TextFormat("%d", counter), (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 4.0f}, 50, 2.0f, WHITE);
       }
     }
 
     EndDrawing();
   }
 
-  UnloadTexture(topPipeImg);
-  UnloadTexture(bottomPipeImg);
-  UnloadTexture(lastMsg);
-  UnloadTexture(background);
+  UnloadTexture(greenTopPipeImg);
+  UnloadTexture(greenBottomPipeImg);
+  UnloadTexture(redTopPipeImg);
+  UnloadTexture(redBottomPipeImg);
+
+  UnloadTexture(day);
+  UnloadTexture(night);
   UnloadTexture(message);
-  UnloadTexture(bird_up);
-  UnloadTexture(bird_mid);
-  UnloadTexture(bird_down);
+  UnloadTexture(lastMsg);
+
+  UnloadTexture(blue_bird_up);
+  UnloadTexture(blue_bird_mid);
+  UnloadTexture(blue_bird_down);
+
+  UnloadTexture(red_bird_up);
+  UnloadTexture(red_bird_mid);
+  UnloadTexture(red_bird_down);
+
+  UnLoadNums(nums);
+
   UnloadSound(jump_sound);
   UnloadSound(wing_sound);
   UnloadSound(die_sound);
   UnloadSound(hit_sound);
   UnloadSound(point_sound);
-  UnLoadNums(nums);
+
+  UnloadFont(customFont);
 
   CloseWindow();
   return 0;
 }
 
 void renderBackground(Texture2D background) {
-  for (u8 i = 0; i < 4; i++) {
+  for (u16 i = 0; i < 4; i++) {
     Vector2 pos = { background.width * i, 0.0f };
     DrawTextureEx(background,pos, 0.0f, 1, WHITE);
   }
-}
-
-void renderCounter(Font fontStyle, Texture2D *nums, u16 counter) {
-  Texture2D count = nums[counter % 10];
-  // printf("count before: %d\n",counter % 10);
-  // counter/=10;
-  // printf("count: after %d\n",counter);
-  Vector2 pos = {
-    .x = 50.0f,
-    .y = 50.0f
-  };
-  DrawTextEx(fontStyle,TextFormat("%d", counter), pos, 30, 2.0f, WHITE);
-  // if(counter > 9) {
-  //   Texture2D nextcount = nums[counter];
-  //   Vector2 nextPos = {
-  //     .x = pos.x + count.width,
-  //     .y = 50.0f
-  //   };
-  //   DrawTextureEx(count,pos, 0, 1.0f,RED);
-  //   DrawTextureEx(nextcount,pos, 0, 1.0f,RED);
-  // }
-  // else {
-    // DrawTextureEx(count,pos, 0, 1.0f,WHITE);
-  // }
 }
 
 void renderTxt(Texture2D msg) {
@@ -212,16 +238,16 @@ void renderTxt(Texture2D msg) {
 }
 
 void loadNums(Texture2D *nums) {
-  for (u8 i = 0; i < 10; i++) {
+  for (u16 i = 0; i < 10; i++) {
     char* str = "./assets/sprites/%d.png";
-    u8 n = strlen(str);
+    u16 n = strlen(str);
     char path[n];
     snprintf(path, n, str, i);
     nums[i] = LoadTexture(path);
   }
 }
 void UnLoadNums(Texture2D *nums) {
-  for (u8 i = 0; i < 10; i++) {
+  for (u16 i = 0; i < 10; i++) {
     UnloadTexture(nums[i]);
   }
 }
@@ -240,40 +266,50 @@ void drawPipe(Texture2D pipeImg,Vector2 pipe) {
 }
 
 bool checkCollision(Rectangle bird, PipePair *pipes) {
-  for (u8 i = 0; i < maxPipes; i++) {
+  for (u16 i = 0; i < maxPipes; i++) {
     if(CheckCollisionRecs(bird, pipes[i].topArea) || CheckCollisionRecs(bird, pipes[i].bottomArea)) return true;
   }
   return false;
 }
 
 void updateBirdPos(Vector2 *pos, float width) {
-    pos->x = SCREEN_WIDTH / 2.0 - width / 2.0f;
-    pos->y = SCREEN_HEIGHT / 2.0f;
+  pos->x = SCREEN_WIDTH / 2.0 - width / 2.0f;
+  pos->y = SCREEN_HEIGHT / 2.0f;
 }
 
 void updateBirdArea(Rectangle *area, Vector2 *pos, float width, float height) {
-    area->x = pos->x;
-    area->y = pos->y;
-    area->width = width;
-    area->height = height;
+  area->x = pos->x;
+  area->y = pos->y;
+  area->width = width;
+  area->height = height;
 }
 
 void movePipes(Vector2 *topPos, Vector2 *bottomPos, float dt, float speed) {
-    topPos->x -= (dt * speed) * 2;
-    bottomPos->x -= (dt * speed) * 2;
+  topPos->x -= (dt * speed) * 2;
+  bottomPos->x -= (dt * speed) * 2;
 }
 
 void updatePipesPos(PipePair *pipes, float topW, float bottomW, float gapV, float offset) {
-  for (u8 i = 0; i < maxPipes; i++) {
-    pipes[i].topPos.x = SCREEN_WIDTH / 1.5f + gapV + topW;
-    pipes[i].topPos.y = -(gapV * 2) - offset;
-    pipes[i].bottomPos.x = SCREEN_WIDTH / 1.5f + gapV + bottomW;
-    pipes[i].bottomPos.y = SCREEN_HEIGHT / 2.0f + gapV - offset;
+  pipes[0].topPos.x = SCREEN_WIDTH + topW;
+  pipes[0].topPos.y = -(SCREEN_HEIGHT + offset * 1.5f) + offset;
+  pipes[0].bottomPos.x = SCREEN_WIDTH + bottomW;
+  pipes[0].bottomPos.y = SCREEN_HEIGHT/ 4.0f + topW - gapV;
+
+  i16 offsetV = 70;
+
+  for (u16 i = 1; i < maxPipes; i++) {
+    pipes[i].topPos.x = pipes[i-1].topPos.x;
+    pipes[i].topPos.y = pipes[i-1].topPos.y + offsetV;
+    pipes[i].bottomPos.x = pipes[i-1].bottomPos.x;
+    pipes[i].bottomPos.y = pipes[i-1].bottomPos.y + offsetV;
+    if (pipes[i].topPos.y == -150.0f || pipes[i].topPos.y == -570.0f) {
+      offsetV = -offsetV;
+    }
   }
 }
 
 void updatePipesArea(PipePair *pipes, float pipeW, float pipeH) {
-  for (u8 i = 0; i < maxPipes; i++) {
+  for (u16 i = 0; i < maxPipes; i++) {
     pipes[i].topArea.x = pipes[i].topPos.x;
     pipes[i].topArea.y = pipes[i].topPos.y;
     pipes[i].bottomArea.x = pipes[i].bottomPos.x;
@@ -294,7 +330,7 @@ void initializePipes(PipePair *pipes, Texture2D topPipeImg, Texture2D bottomPipe
 
   updatePipesPos(pipes, topPipeImg.width, bottomPipeImg.width, gapV, offset);
 
-  for (u8 i = 1; i < maxPipes; i++) {
+  for (u16 i = 1; i < maxPipes; i++) {
     pipes[i].topPos.x = pipes[i-1].topPos.x + gapBetweenPipes;
     pipes[i].bottomPos.x = pipes[i-1].topPos.x + gapBetweenPipes;
   }

@@ -1,11 +1,9 @@
-#include <raylib.h>
 #include "base.h"
 #include <string.h>
-#include <stdlib.h>
 
 #define SCREEN_WIDTH 1000
 #define SCREEN_HEIGHT 500
-#define maxPipes 1028
+#define maxPipes 12
 
 typedef struct {
   Vector2 topPos;

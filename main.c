@@ -1,9 +1,4 @@
 #include "main.h"
-#include <raylib.h>
-#include <stdbool.h>
-#include <stdio.h>
-
-void toggleMode();
 
 int main() {
   bool mode = 0;
@@ -98,10 +93,23 @@ int main() {
 
     if(!gameOver) {
 
-      if(pipes[maxPipes-1].topPos.x + pipeWidth <= 0) {
-        initializePipes(pipes, topPipeImg, bottomPipeImg, vertGap, offset, gapBetweenPipes);
-      }
+      for (u16 i = 0; i < maxPipes; i++) {
+        if (pipes[i].topPos.x + pipeWidth <= 0) {
 
+          // find rightmost pipe
+          float maxX = 0;
+          for (u16 j = 0; j < maxPipes; j++) {
+            if (pipes[j].topPos.x > maxX) {
+              maxX = pipes[j].topPos.x;
+            }
+          }
+
+          // move this pipe to the right of the last pipe
+          pipes[i].topPos.x = maxX + gapBetweenPipes;
+          pipes[i].bottomPos.x = maxX + gapBetweenPipes;
+
+        }
+      }
       if(bird.pos.y >= SCREEN_HEIGHT || bird.pos.y <= 0) {
         PlaySound(die_sound);
         gameOver = true;
@@ -112,7 +120,7 @@ int main() {
       }
 
       if(showTexture){
-        if(bird.pos.x > pipes[counter].bottomArea.x + pipeWidth) {
+        if(bird.pos.x > pipes[counter%maxPipes].bottomArea.x + pipeWidth) {
           PlaySound(point_sound);
           if((counter + 1) % 5 == 0) {
             mode = !mode;
@@ -171,6 +179,7 @@ int main() {
         velocity = 0;
         counter = 0;
         frameTime = 0;
+        pipeSpeed = 40.0f;
 
         // update bird
         updateBirdArea(&bird.area, &bird.pos, birdWidth, birdHeight);
@@ -186,7 +195,8 @@ int main() {
       }
       else {
         renderTxt(lastMsg);
-        DrawTextEx(customFont,TextFormat("%d", counter), (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 4.0f}, 50, 2.0f, WHITE);
+        const char *counterTxt = TextFormat("%d", counter);
+        DrawTextEx(customFont,counterTxt,(Vector2){SCREEN_WIDTH / 2.0f - MeasureText(counterTxt, 50), SCREEN_HEIGHT / 4.0f}, 50, 2.0f, WHITE);
       }
     }
 
@@ -320,10 +330,6 @@ void updatePipesArea(PipePair *pipes, float pipeW, float pipeH) {
     pipes[i].topArea.height = pipeH;
     pipes[i].bottomArea.height = pipeH;
   }
-}
-
-void logPosition(Vector2 pos) {
-  printf("x: %f y: %f\n", pos.x, pos.y);
 }
 
 void initializePipes(PipePair *pipes, Texture2D topPipeImg, Texture2D bottomPipeImg, float gapV, float offset, float gapBetweenPipes) {
